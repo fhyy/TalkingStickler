@@ -165,13 +165,10 @@ async def talkingStick(message, roll, date):
         rollsLevel = RollsLevel()
 
     if rollsLevel.addRoll(id, roll):
-        print("Added roll")
         if rollsLevel.hasHighestRoll(id):
-            print("Has highest")
             await assignStick(message, id)
         else:
             ties = rollsLevel.getTies()
-            print("Ties: " + str(ties))
             if id in ties:
                 await notifyTieBreaker(message, ties)
     else:
