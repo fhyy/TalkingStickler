@@ -100,19 +100,17 @@ async def on_message(message):
         await client.get_channel(channelId).send("It's "+str(date))
         
     if message.content.startswith('!h'):
-        await sendMessage('`!stick` for talking stick roll\n'
+        await sendMessage('`!rfs` roll for stick (d20)\n'
                           '`!roll d<sides>` or `!roll d<sides> <num>` for rolling dice\n'
                           '`!dr` or `!dr restart` for death roll or restarting')
-    if message.content.startswith('!stick'):
-        await sendMessage("Use `!roll` for now")
-        #TODO: Roll a d20 and call talkingStick(id, roll)
-    if message.content.startswith('!static'):
-        matches = re.search('!static (\d+)', message.content)
-        if matches == None or matches.group(1) == None:
-            return
-        roll = int(matches.group(1))
-        await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll))
-        await talkingStick(message, roll, date)
+    if message.content.startswith('!rfs'):
+        await talkingStick(message, rollDice(20), date)
+    #if message.content.startswith('!static'):
+    #    matches = re.search('!static (\d+)', message.content)
+    #    if matches == None or matches.group(1) == None:
+    #        return
+    #    roll = int(matches.group(1))
+    #    await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll))
     if message.content.startswith('!roll'):
         matches = re.search('!roll d(\d+)( (\d+))?', message.content)
         if matches == None or matches.group(1) == None:
@@ -125,7 +123,6 @@ async def on_message(message):
             if number == 1:
                 roll = rollDice(sides)
                 await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll))
-                await talkingStick(message, roll, date)
             elif number < 999:
                 results = rollMultipleDice(sides, number)
                 rollsString = ""
