@@ -2,65 +2,69 @@ import discord
 import os
 import re
 import ids
+import random
 from datetime import datetime
 from pytz import timezone
 
 class RollsLevel:
-    highestRoll = 0
-    rolls = []
-    nextRollsLevel = None
-
-    def __init__(self,id,roll):
-        self.rolls.append((id, roll))
-        self.highestRoll = roll
+    def __init__(self):
+        self.highestRoll = 0
+        self.rolls = []
+        self.nextRollsLevel = None
     
-    def addRoll(self,id, roll):
+    def addRoll(self, id, roll):
         prevRoll = self.getRoll(id)
         if prevRoll == None:
-            self.rolls.append((id, roll))
+            self.rolls.append({"id": id, "roll": roll})
             if roll == self.highestRoll:
-                self.nextRollsLevel = RollsLevel(id, roll)
-            elif roll > self.highestRoll:
+                if self.nextRollsLevel == None:
+                    self.nextRollsLevel = RollsLevel()
+            if roll > self.highestRoll:
+                self.highestRoll = roll
+                self.tied = False
                 if self.nextRollsLevel != None:
                     self.nextRollsLevel.clear()
+                    self.nextRollsLevel = None
             return True
-        if prevRoll == self.highestRoll and self.nextRollsLevel != None:
+        if prevRoll == self.highestRoll:
+            if self.nextRollsLevel == None:
+                return False
             return self.nextRollsLevel.addRoll(id, roll)
         else:
             return False
     
-    def clear(self,):
+    def clear(self):
         if self.nextRollsLevel != None:
             self.nextRollsLevel.clear()
             self.nextRollsLevel = None
         
     def getRoll(self,id):
-        for rollId, roll in self.rolls:
-            if id == roleId:
-                return roll
+        for roll in self.rolls:
+            if id == roll["id"]:
+                return roll["roll"]
         return None
         
     def hasHighestRoll(self,id):
-        if id == self.getHighestRoll():
+        if id == self.getHighestRoll()["id"]:
             return True
         return False
         
     def getHighestRoll(self):
-        for rollId, roll in self.rolls:
-            if roll == self.highestRoll:
+        for roll in self.rolls:
+            if roll["roll"] == self.highestRoll:
                 if self.nextRollsLevel != None:
                     return self.nextRollsLevel.getHighestRoll()
-            return rollId
-        return None # Should not be the case
+                return roll
+        return {"id": '0', "roll": 0}
         
     def getTies(self):
         ties = []
-        for rollId, roll in self.rolls:
-            if roll == self.highestRoll:
-                ties.append(rollId)
         if self.nextRollsLevel != None:
+            for roll in self.rolls:
+                if roll["roll"] == self.highestRoll:
+                    if self.nextRollsLevel.getRoll(roll["id"]) == None:
+                        ties.append(roll["id"])
             ties = ties + self.nextRollsLevel.getTies()
-        ties.remove(self.getHighestRoll())
         return list(set(ties))
         
 intents = discord.Intents(messages=True, members=True, guilds=True)
@@ -72,6 +76,7 @@ diceBotId = ids.diceBotId
 channelId = ids.channelId
 roleId = ids.roleId
 clientKey = ids.clientKey
+currentDeathRoll = 1000
 
 lastRollDate = tz.utcoffset(datetime.utcnow()) + datetime.utcnow()
 rollsLevel = None
@@ -82,52 +87,107 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    global rollsLevel
-    global highestRoll
     global tz
-    global diceBotId
     global channelId
-    global roleId
+    global currentDeathRoll
 
     if message.author == client.user or message.channel.id != channelId:
         return
-
     date = message.created_at
     date = tz.utcoffset(date) + date;
-
+    
     if message.content == "Stickler what time is it?":
         await client.get_channel(channelId).send("It's "+str(date))
-
-    if message.author.id == diceBotId:
-        nums = re.findall(r'\d+', message.content) #"<@123456> You rolled 15"
-        if len(nums) < 2:
+        
+    if message.content.startswith('!h'):
+        await sendMessage('`!stick` for talking stick roll\n'
+                          '`!roll d<sides>` or `!roll d<sides> <num>` for rolling dice\n'
+                          '`!dr` or `!dr restart` for death roll or restarting')
+    if message.content.startswith('!stick'):
+        await sendMessage("Use `!roll` for now")
+        #TODO: Roll a d20 and call talkingStick(id, roll)
+    if message.content.startswith('!static'):
+        matches = re.search('!static (\d+)', message.content)
+        if matches == None or matches.group(1) == None:
             return
-
-        id = int(nums[0])
-        roll = int(nums[1])
-
-        updateDate(date)
-
-        if rollsLevel == None:
-            rollsLevel = RollsLevel(id, roll)
+        roll = int(matches.group(1))
+        await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll))
+        await talkingStick(message, roll, date)
+    if message.content.startswith('!roll'):
+        matches = re.search('!roll d(\d+)( (\d+))?', message.content)
+        if matches == None or matches.group(1) == None:
+            return
+        sides = int(matches.group(1))
+        number = 1
+        if matches.group(3) != None:
+            number = int(matches.group(3))
+        if sides < 9999:
+            if number == 1:
+                roll = rollDice(sides)
+                await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll))
+                await talkingStick(message, roll, date)
+            elif number < 999:
+                results = rollMultipleDice(sides, number)
+                rollsString = ""
+                rolls = results["rolls"]
+                total = results["total"]
+                for i in range(0,len(rolls)):
+                    if i == len(rolls):
+                        rollsString = rollsString + str(rolls[i])
+                    else:
+                        rollsString = rollsString + str(rolls[i]) + ", "
+                        
+                await sendMessage("<@"+str(message.author.id)+"> rolled " + rollsString+ " = " + str(total) + " (total)")
+            
+    if message.content.startswith('!dr'):
+        if message.content.startswith('!dr restart'):
+            currentDeathRoll = 1000
+            await sendMessage("Death roll starting over!")
         else:
-            if rollsLevel.addRoll(id, roll):
-                if rollsLevel.hasHighestRoll(id):
-                    await assignStick(message, id)
-                else:
-                    ties = rollsLevel.getTies()
-                    if id in ties:
-                        await notifyTieBreaker(message, ties)
+            roll = rollDice(currentDeathRoll)
+            fromNum = currentDeathRoll
+            if roll == 1:
+                currentDeathRoll = 1000
+                await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll) + "/" + str(fromNum) + " and lost!")
+                await sendMessage("Death roll starting over!")
             else:
-                await client.get_channel(channelId).send("Don't you go cheating now <@"+str(id)+">")
+                currentDeathRoll = roll
+                await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll) + "/" + str(fromNum))
+            
+async def talkingStick(message, roll, date):
+    global rollsLevel
+    global highestRoll
+    global channelId
+    global roleId
+    id = message.author.id
+    updateDate(date)
+
+    if rollsLevel == None:
+        rollsLevel = RollsLevel()
+
+    if rollsLevel.addRoll(id, roll):
+        print("Added roll")
+        if rollsLevel.hasHighestRoll(id):
+            print("Has highest")
+            await assignStick(message, id)
+        else:
+            ties = rollsLevel.getTies()
+            print("Ties: " + str(ties))
+            if id in ties:
+                await notifyTieBreaker(message, ties)
+    else:
+        await client.get_channel(channelId).send("<@"+str(id)+"> don't you go cheating now!")
 
 async def assignStick(message, id):
     global channelId
     global roleId
-    await client.get_channel(channelId).send("<@"+str(id)+">, you've got the stick now!")
+    await sendMessage("<@"+str(id)+">, you've got the stick now!")
     await clearRole(extractMembers(message), message.guild.get_role(roleId))
     await setRole(message.guild.get_member(id), message.guild.get_role(roleId))
 
+async def sendMessage(message):
+    await client.get_channel(channelId).send(message)
+    
 async def notifyTieBreaker(message, ties):
     text = "Remember to roll your tie breaker rolls!"
     for id in ties:
@@ -142,6 +202,18 @@ async def clearRole(members, role):
 async def setRole(member, role):
     await member.add_roles(role)
 
+def rollMultipleDice(sides, num):
+    rolls = []
+    total = 0
+    for i in range(0,num):
+        roll = rollDice(sides)
+        rolls.append(roll)
+        total = total + roll
+    return {"rolls":rolls,"total":total}
+    
+def rollDice(sides):
+    return random.randint(1,sides)
+    
 def isCheating(id, roll):
     global rollsToday
     for rolls in rollsToday:
