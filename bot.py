@@ -104,7 +104,9 @@ async def on_message(message):
                           '`!roll d<sides>` or `!roll d<sides> <num>` for rolling dice\n'
                           '`!dr` or `!dr restart` for death roll or restarting')
     if message.content.startswith('!rfs'):
-        await talkingStick(message, rollDice(20), date)
+        roll = rollDice(20)
+        await sendMessage("<@"+str(message.author.id)+"> rolled " + str(roll))
+        await talkingStick(message, roll, date)
     #if message.content.startswith('!static'):
     #    matches = re.search('!static (\d+)', message.content)
     #    if matches == None or matches.group(1) == None:
