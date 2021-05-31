@@ -3,7 +3,9 @@ import os
 import re
 import ids
 import random
+import asyncio
 from datetime import datetime
+from datetime import timedelta
 from pytz import timezone
 
 class RollsLevel:
@@ -234,20 +236,36 @@ def isIdInMembers(members, id):
 def extractMembers(message):
     return message.guild.members
 
-def get_member_id_with_nickname(nick, members):
-    for member in members:
-        if member.nickname == nick:
-            return member.id
-    return -1
+async def midnightJob():
+    sendMessage("-p feeling good")
 
-def get_member_id_with_nickname(name, members):
-    for member in members:
-        if member.name == name:
-            return member.id
-    return -1
+lastDay = 0
 
-def get_all_members_ids(guild):
-    for member in guild.members:
-        yield member.id
+def secondsUntilEndOfToday():
+    dateNow = datetime.now()
+    dateNow = tz.utcoffset(dateNow) + dateNow;
+    dTime = datetime.combine(
+        dateNow.date() + timedelta(days=1), datetime.strptime("0000", "%H%M").time()
+    ) - dateNow
+    return dTime.seconds
 
+def checkIfNewDay():
+    date = datetime.now()
+    date = tz.utcoffset(date) + date;
+    return lastDay != date.day
+
+async def checkIfAndRunMidnightTask():
+    if checkIfNewDay():
+        await midnightJob()
+
+async def scheduledTasks():
+    while True:
+        date = datetime.now()
+        date = tz.utcoffset(date) + date;
+        timeUntilMidnightSeconds = secondsUntilEndOfToday()
+        await asyncio.sleep(min(timeUntilMidnightSeconds, 10))
+        await checkIfAndRunMidnightTask()
+        lastDay = date.day
+
+asyncio.get_event_loop().create_task(scheduledTasks())
 client.run(clientKey)
