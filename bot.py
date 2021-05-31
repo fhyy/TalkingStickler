@@ -260,11 +260,11 @@ async def checkIfAndRunMidnightTask():
 
 async def scheduledTasks():
     while True:
-        date = datetime.now()
-        date = tz.utcoffset(date) + date;
         timeUntilMidnightSeconds = secondsUntilEndOfToday()
         await asyncio.sleep(min(timeUntilMidnightSeconds, 10))
         await checkIfAndRunMidnightTask()
+        date = datetime.now()
+        date = tz.utcoffset(date) + date;
         lastDay = date.day
 
 asyncio.get_event_loop().create_task(scheduledTasks())
