@@ -76,6 +76,7 @@ tz = timezone('Europe/Stockholm')
 
 diceBotId = ids.diceBotId
 channelId = ids.channelId
+musicChannelId = ids.musicChannelId
 roleId = ids.roleId
 clientKey = ids.clientKey
 currentDeathRoll = 1000
@@ -237,7 +238,7 @@ def extractMembers(message):
     return message.guild.members
 
 async def midnightJob():
-    sendMessage("-p feeling good")
+    await client.get_channel(musicChannelId).send("-p feeling good")
 
 lastDay = 0
 
@@ -250,6 +251,7 @@ def secondsUntilEndOfToday():
     return dTime.seconds
 
 def checkIfNewDay():
+    global lastDay
     date = datetime.now()
     date = tz.utcoffset(date) + date;
     return lastDay != date.day
@@ -259,6 +261,8 @@ async def checkIfAndRunMidnightTask():
         await midnightJob()
 
 async def scheduledTasks():
+    global lastDay
+    lastDay = date.day
     while True:
         timeUntilMidnightSeconds = secondsUntilEndOfToday()
         await asyncio.sleep(min(timeUntilMidnightSeconds, 10))
