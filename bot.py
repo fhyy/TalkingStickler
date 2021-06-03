@@ -224,8 +224,9 @@ def updateDate(date):
     global lastRollDate
     global rollsLevel
     if lastRollDate.date() < date.date():
-       rollsLevel.clear()
-       rollsLevel = None
+        if rollsLevel != None:
+            rollsLevel.clear()
+        rollsLevel = None
     lastRollDate = date
 
 def isIdInMembers(members, id):
@@ -262,13 +263,15 @@ async def checkIfAndRunMidnightTask():
 
 async def scheduledTasks():
     global lastDay
+    date = datetime.now()
+    date = tz.utcoffset(date) + date
     lastDay = date.day
     while True:
         timeUntilMidnightSeconds = secondsUntilEndOfToday()
         await asyncio.sleep(min(timeUntilMidnightSeconds, 10))
         await checkIfAndRunMidnightTask()
         date = datetime.now()
-        date = tz.utcoffset(date) + date;
+        date = tz.utcoffset(date) + date
         lastDay = date.day
 
 asyncio.get_event_loop().create_task(scheduledTasks())
