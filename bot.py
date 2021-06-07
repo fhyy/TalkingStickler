@@ -96,8 +96,7 @@ async def on_message(message):
 
     if message.author == client.user or message.channel.id != channelId:
         return
-    date = message.created_at
-    date = tz.utcoffset(date) + date;
+    date = messageDate(message);
     
     if message.content == "Stickler what time is it?":
         await client.get_channel(channelId).send("It's "+str(date))
@@ -239,13 +238,18 @@ def extractMembers(message):
     return message.guild.members
 
 async def midnightJob():
+    await client.get_channel(musicChannelId).send("-summon")
     await client.get_channel(musicChannelId).send("-p feeling good")
 
 lastDay = 0
 
+def messageDate(message):
+    date = message.created_at
+    date = tz.utcoffset(date) + date;
+    return date
+
 def secondsUntilEndOfToday():
     dateNow = datetime.now()
-    dateNow = tz.utcoffset(dateNow) + dateNow;
     dTime = datetime.combine(
         dateNow.date() + timedelta(days=1), datetime.strptime("0000", "%H%M").time()
     ) - dateNow
@@ -254,7 +258,6 @@ def secondsUntilEndOfToday():
 def checkIfNewDay():
     global lastDay
     date = datetime.now()
-    date = tz.utcoffset(date) + date;
     return lastDay != date.day
 
 async def checkIfAndRunMidnightTask():
@@ -268,10 +271,9 @@ async def scheduledTasks():
     lastDay = date.day
     while True:
         timeUntilMidnightSeconds = secondsUntilEndOfToday()
-        await asyncio.sleep(min(timeUntilMidnightSeconds, 10))
+        await asyncio.sleep(min(timeUntilMidnightSeconds+1, 60*30))
         await checkIfAndRunMidnightTask()
         date = datetime.now()
-        date = tz.utcoffset(date) + date
         lastDay = date.day
 
 asyncio.get_event_loop().create_task(scheduledTasks())
